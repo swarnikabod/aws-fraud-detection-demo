@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Fraud Detection</title>
+    <style>
+        /* General Styling */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* Main container for the app */
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        /* Header styling */
+        h1 {
+            color: #1a237e;
+            margin-bottom: 10px;
+        }
+        
+        p {
+            color: #555;
+            margin-bottom: 30px;
+        }
+
+        /* Text area for user input */
+        textarea {
+            width: 100%;
+            height: 120px;
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 14px;
+            box-sizing: border-box;
+            resize: vertical;
+        }
+
+        /* Submit button styling */
+        button {
+            background-color: #3f51b5;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background-color 0.3s ease;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background-color: #303f9f;
+        }
+
+        /* Div to display the prediction result */
+        #result {
+            margin-top: 30px;
+            font-size: 22px;
+            font-weight: bold;
+            min-height: 30px;
+        }
+
+        /* Styling for a "safe" result */
+        .safe {
+            color: #2e7d32; /* Green */
+        }
+
+        /* Styling for a "fraudulent" result */
+        .fraud {
+            color: #c62828; /* Red */
+        }
+        
+        /* Styling for an error message */
+        .error {
+            color: #d32f2f; /* Red */
+        }
+
+        /* Loading spinner */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3f51b5;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin: 30px auto 0 auto;
+            display: none; /* Hidden by default */
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Real-Time Fraud Detection</h1>
+        <p>Paste a comma-separated transaction record below to get a prediction from the live model.</p>
+        
+        <form id="prediction-form">
+            <textarea id="transaction-data" placeholder="-0.338,1.062,-1.334,-0.258,1.428,0.738,0.593,0.208,0.024,-0.781,..."></textarea>
+            <button type="submit">Predict</button>
+        </form>
+        
+        <div class="loader" id="loader"></div>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // Get references to the HTML elements
+        const form = document.getElementById('prediction-form');
+        const transactionDataInput = document.getElementById('transaction-data');
+        const resultDiv = document.getElementById('result');
+        const loader = document.getElementById('loader');
+
+        // --- ACTION REQUIRED: REPLACE THIS URL ---
+        // Replace the placeholder with your actual API Gateway Invoke URL
+        const apiUrl = 'https://wm3a4n9qzj.execute-api.ap-south-1.amazonaws.com/v1/predict';
+
+        // Listen for the form submission event
+        form.addEventListener('submit', async (event) => {
+            // Prevent the default form action (which would reload the page)
+            event.preventDefault();
+
+            // Clear previous results and show the loader
+            resultDiv.innerHTML = '';
+            loader.style.display = 'block';
+
+            // Get the transaction data from the textarea
+            const data = transactionDataInput.value.trim();
+
+            // Basic validation to ensure data is not empty
+            if (!data) {
+                resultDiv.innerHTML = '<span class="error">Please paste transaction data.</span>';
+                loader.style.display = 'none';
+                return;
+            }
+
+            try {
+                // Send the POST request to the API using the Fetch API
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    // The body must be a JSON string with a "data" key
+                    body: JSON.stringify({ data: data })
+                });
+
+                // Check if the HTTP response is successful
+                if (!response.ok) {
+                    throw new Error(`API Error: Status ${response.status}`);
+                }
+
+                // Parse the JSON response from the API
+                const result = await response.json();
+                
+                // The model returns a probability score. We'll set a threshold of 0.5.
+                // Anything above 0.5 is considered fraud.
+                if (result.prediction > 0.5) {
+                    resultDiv.innerHTML = '<span class="fraud">Result: FRAUDULENT</span>';
+                } else {
+                    resultDiv.innerHTML = '<span class="safe">Result: Not Fraudulent</span>';
+                }
+
+            } catch (error) {
+                // Display any errors that occur during the fetch
+                resultDiv.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+                console.error('There was an error with the prediction request:', error);
+            } finally {
+                // Hide the loader regardless of success or failure
+                loader.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
